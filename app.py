@@ -1,42 +1,35 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 
-# Configuration de la page
-st.set_page_config(page_title="Vérifications Engins", layout="centered")
+st.set_page_config(page_title="Caserne", layout="centered")
 
-st.title("🚒 Gestion des Vérifications")
+st.title("🚒 Vérifications Engins")
 
-# Connexion au Google Sheets (utilisant la nouvelle méthode simplifiée)
 try:
+    # Connexion
     conn = st.connection("gsheets", type=GSheetsConnection)
+    # Lecture forcée
     df = conn.read(ttl=0)
-
-    # Affichage des engins
-    for index, row in df.iterrows():
-        with st.container(border=True):
-            col1, col2 = st.columns()
-            
-            with col1:
-                # Vérifie si une URL de photo existe, sinon met une image par défaut
-                if row['Photo']:
-                    st.image(row['Photo'], use_container_width=True)
-                else:
-                    st.write("Pas de photo")
-            
-            with col2:
-                st.subheader(row['Engin'])
-                verificateur = row['Verificateur'] if row['Verificateur'] else "À désigner"
-                st.write(f"Vérificateur : **{verificateur}**")
+    
+    if df.empty:
+        st.warning("Le tableau est vide.")
+    else:
+        for index, row in df.iterrows():
+            with st.container(border=True):
+                # Affichage simple sans image pour tester
+                st.subheader(f"Engin : {row['Engin']}")
+                agent = row['Verificateur'] if pd.notnull(row['Verificateur']) else "À désigner"
+                st.write(f"👤 Actuel : **{agent}**")
                 
-                # Petit formulaire pour changer le nom
                 with st.expander("Modifier"):
-                    with st.form(key=f"form_{index}"):
-                        nouveau_nom = st.text_input("Nom de l'agent", value=row['Verificateur'])
-                        if st.form_submit_button("Enregistrer"):
-                            df.at[index, 'Verificateur'] = nouveau_nom
+                    with st.form(key=f"f_{index}"):
+                        nouveau = st.text_input("Ton nom", key=f"in_{index}")
+                        if st.form_submit_button("Valider"):
+                            df.at[index, 'Verificateur'] = nouveau
                             conn.update(data=df)
-                            st.success("Mise à jour réussie !")
+                            st.success("OK !")
                             st.rerun()
 except Exception as e:
-    st.error("L'application n'est pas encore connectée au Google Sheets.")
-    st.info("Allez dans les paramètres Streamlit Cloud pour ajouter l'URL de votre feuille dans les Secrets.")
+    st.error(f"Erreur de lecture : {e}")
+    st.info("Vérifiez que l'URL dans les Secrets est la bonne et que le Sheets est partagé en 'Éditeur'.")
